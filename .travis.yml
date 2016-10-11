@@ -6,4 +6,4 @@ script:
     - sudo apt-get -qq update
     - sudo apt-get -qq install tarantool
     - tarantool --version
-    - prove -rv t
+    - prove -r t
