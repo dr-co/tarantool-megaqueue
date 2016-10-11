@@ -158,7 +158,5 @@ The statistics is broken down by queue id. Only queues on which
 there was some activity are included in the output.
 
 The format of the statistics is a sequence of rows, where each
-odd row is the name of a statistical parameter, and the
-next even row is the value.
-
+row is a statistics for each tube.
 
