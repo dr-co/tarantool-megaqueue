@@ -1,35 +1,35 @@
-local log = require 'log'
-local fiber = require 'fiber'
+local log                   = require 'log'
+local fiber                 = require 'fiber'
 
-local MAX_PRI       = 1000
+local MAX_PRI               = 1000
 
-local ID            = 1
-local TUBE          = 2
-local PRI           = 3
-local DOMAIN        = 4
-local STATUS        = 5
-local EVENT         = 6
-local CLIENT        = 7
-local OPTIONS       = 8
-local DATA          = 9
+local ID                    = 1
+local TUBE                  = 2
+local PRI                   = 3
+local DOMAIN                = 4
+local STATUS                = 5
+local EVENT                 = 6
+local CLIENT                = 7
+local OPTIONS               = 8
+local DATA                  = 9
+                           
+                           
+local C_ID                  = 1
+local C_TUBE                = 2
+local C_CLIENT              = 3
+local C_FID                 = 4
 
-
-local C_ID          = 1
-local C_TUBE        = 2
-local C_CLIENT      = 3
-local C_FID         = 4
-
-local TIMEOUT_INFINITY        = 86400 * 365 * 100
+local TIMEOUT_INFINITY      = 86400 * 365 * 100
 
 local mq = {
-    VERSION                 = '1.0',
+    VERSION             = '1.0',
 
     defaults    = {
-        ttl                 = 86400,
-        ttr                 = 86400,
-        pri                 = 50,
-        domain              = '',
-        delay               = 0,
+        ttl             = 86400,
+        ttr             = 86400,
+        pri             = 50,
+        domain          = '',
+        delay           = 0,
     },
 
     -- last serials
@@ -43,7 +43,9 @@ local mq = {
             ready   = true,
             work    = true,
             buried  = true
-        }
+        },
+
+        stats       = require('megaqueue.stats')
     }
 }
 
@@ -508,9 +510,7 @@ function mq.release(self, tid, delay)
     else
         delay = 0
     end
-
     local task = self:_get_taken(tid)
-
 
     if delay > 0 then
         local opts = task[OPTIONS]
@@ -673,5 +673,18 @@ function mq._on_disconnect(self)
     end
 end
 
+--------- Don't show private methods
+local priv = {}
+local pub  = {}
 
-return mq
+for key, m in pairs(mq) do
+    if string.match(key, '^_') then
+        priv[key] = m
+    else
+        pub[key] = m
+    end
+end
+
+setmetatable(pub, { __index = priv })
+
+return pub
