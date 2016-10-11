@@ -37,7 +37,13 @@ local mq = {
         serial  = {},
 
         migrations  = require('megaqueue.migrations'),
-        consumer    = {}
+        consumer    = {},
+        
+        may_enqueue = {
+            ready   = true,
+            work    = true,
+            buried  = true
+        }
     }
 }
 
@@ -227,7 +233,10 @@ function mq._run_worker(self)
 end
 
 function mq._enqueue_task_by(self, task)
-    if task[STATUS] ~= 'ready' and task[STATUS] ~= 'work' then
+
+    
+
+    if not self.private.may_enqueue[ task[STATUS] ] then
         return
     end
 
@@ -536,6 +545,42 @@ function mq.bury(self, tid, comment)
             { '=', OPTIONS, opts }
         }
     )
+    self:_enqueue_task_by(task)
+    return self:_normalize_task(task)
+end
+
+function mq.dig(self, tid)
+    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:dig(task_id)')
+    local task = box.space.MegaQueue:get(tid)
+    if task == nil then
+        box.error(box.error.PROC_LUA,
+            string.format(
+                'Task %s is not found', tostring(tid)
+            )
+        )
+    end
+
+    if task[STATUS] ~= 'buried' then
+        box.error(box.error.PROC_LUA,
+            string.format(
+                'Task %s is not buried (%s)', tostring(tid), task[STATUS]
+            )
+        )
+    end
+    return self:_normalize_task(self:_task_to_ready(task))
+end
+
+mq.unbury = mq.dig
+
+function mq.delete(self, tid)
+    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:delete(task_id)')
+    local task = box.space.MegaQueue:get(tid)
+    return self:_normalize_task(self:_task_delete(task))
+end
+
+function mq.peek(self, tid)
+    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:delete(task_id)')
+    local task = box.space.MegaQueue:get(tid)
     return self:_normalize_task(task)
 end
 
