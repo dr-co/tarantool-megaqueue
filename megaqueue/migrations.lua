@@ -134,6 +134,42 @@ migrations.list = {
             )
         end
     },
+    
+    {
+        description = 'Create MegaQueueStats space',
+        up  = function()
+            box.schema.space.create(
+                'MegaQueueStats',
+                {
+                    engine      = 'memtx',
+                    format  = {
+                        {                           -- #1
+                            ['name']    = 'tube',
+                            ['type']    = 'str',
+                        },
+
+                        {                           -- #2
+                            ['name']    = 'counters',
+                            ['type']    = '*',
+                        },
+                    }
+                }
+            )
+        end
+    },
+    {
+        description = 'MegaQueueStats: main index',
+        up = function()
+            box.space.MegaQueueStats:create_index(
+                'tube',
+                {
+                    unique  = true,
+                    type    = 'hash',
+                    parts   = { 1, 'str' }
+                }
+            )
+        end
+    },
 }
 
 

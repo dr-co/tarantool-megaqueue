@@ -156,13 +156,14 @@ function mq._take(self, tube)
 
     box.begin()
 
+        local old_status = task[STATUS]
         task = box.space.MegaQueue:update(
                 task[ID], {
                     { '=', STATUS, 'work' },
                     { '=', CLIENT, box.session.id() },
                     { '=', EVENT, ttr }
                 })
-        -- TODO: update statistics
+        self.private.stats:inc(task[TUBE], 'work', old_status)
     box.commit()
 
     return task
@@ -269,26 +270,30 @@ function mq._enqueue_task_by(self, task)
         return
     end
 
-    box.space.MegaQueue:update(wait_task[ID],
-        {
-            { '=', STATUS, 'ready' },
-            { '=', CLIENT, 0 },
-            { '=', EVENT,
-                    wait_task[OPTIONS].ttl + wait_task[OPTIONS].created }
-        }
-    )
+    box.begin()
+        local old_status = wait_task[STATUS]
+        box.space.MegaQueue:update(wait_task[ID],
+            {
+                { '=', STATUS, 'ready' },
+                { '=', CLIENT, 0 },
+                { '=', EVENT,
+                        wait_task[OPTIONS].ttl + wait_task[OPTIONS].created }
+            }
+        )
+        self.private.stats:inc(task[TUBE], 'ready', old_status)
+    box.commit()
     self:_consumer_wakeup(wait_task[TUBE])
 end
 
 function mq._task_delete(self, task, reason)
     local rm_task
     box.begin()
+        local old_status = task[STATUS]
         rm_task = box.space.MegaQueue:delete(task[ID])
-
-        self:_enqueue_task_by(task)
-
-        -- TODO: statistics
+        self.private.stats:dec(task[TUBE], old_status)
     box.commit()
+        
+    self:_enqueue_task_by(task)
 
     if rm_task ~= nil then
         return rm_task:transform(STATUS, 1, 'removed')
@@ -332,6 +337,8 @@ function mq._task_to_ready(self, task, prolong_ttl)
             { '=', CLIENT, 0 },
             { '=', OPTIONS, opts }
         })
+        
+        self.private.stats:inc(task[TUBE], status, task[STATUS])
         
         self:_consumer_wakeup(task[TUBE])
         -- TODO: statistics
@@ -483,7 +490,8 @@ function mq.put(self, tube, opts, data)
         task = box.space.MegaQueue:insert(task)
         self:_next_serial('MegaQueue')
 
-        -- TODO: update statistic
+        
+        self.private.stats:inc(task[TUBE], task[STATUS])
 
         self:_consumer_wakeup(tube)
     box.commit()
@@ -516,7 +524,8 @@ function mq.release(self, tid, delay)
         local opts = task[OPTIONS]
         opts.ttl = opts.ttl + fiber.time() - opts.created + delay
         local event = fiber.time() + delay
-        
+       
+        local old_status = task[STATUS]
         task = box.space.MegaQueue:update(task[ID],
             {
                 { '=', STATUS, 'delayed' },
@@ -525,6 +534,7 @@ function mq.release(self, tid, delay)
                 { '=', OPTIONS, opts }
             }
         )
+        self.private.stats:inc(task[TUBE], 'delayed', old_status)
         return self:_normalize_task(task)
     end
     return self:_normalize_task(self:_task_to_ready(task))
@@ -537,14 +547,18 @@ function mq.bury(self, tid, comment)
    
     local opts = task[OPTIONS]
     opts.bury_comment = comment
-    task = box.space.MegaQueue:update(task[ID],
-        {
-            { '=', STATUS, 'buried' },
-            { '=', CLIENT, 0 },
-            { '=', EVENT, task[OPTIONS].created + task[OPTIONS].ttl },
-            { '=', OPTIONS, opts }
-        }
-    )
+    local old_status = task[STATUS]
+    box.begin()
+        task = box.space.MegaQueue:update(task[ID],
+            {
+                { '=', STATUS, 'buried' },
+                { '=', CLIENT, 0 },
+                { '=', EVENT, task[OPTIONS].created + task[OPTIONS].ttl },
+                { '=', OPTIONS, opts }
+            }
+        )
+        self.private.stats:inc(task[TUBE], 'work', old_status)
+    box.commit()
     self:_enqueue_task_by(task)
     return self:_normalize_task(task)
 end
@@ -579,7 +593,7 @@ function mq.delete(self, tid)
 end
 
 function mq.peek(self, tid)
-    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:delete(task_id)')
+    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:peek(task_id)')
     local task = box.space.MegaQueue:get(tid)
     return self:_normalize_task(task)
 end
@@ -645,6 +659,15 @@ function mq.init(self, defaults)
     return upgrades
 end
 
+
+function mq.stats(self, tube)
+    if tube == nil then
+        return box.space.MegaQueueStats:select(nil, { iterator = 'ALL' })
+    end
+    return box.space.MegaQueueStats:get(tube)
+end
+
+mq.statistics = mq.stats
 
 function mq._on_disconnect(self)
     return function()
