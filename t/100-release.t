@@ -3,7 +3,7 @@
 local json = require 'json'
 local test = require('tap').test()
 local fiber = require 'fiber'
-test:plan(6)
+test:plan(7)
 
 local tnt = require('t.tnt')
 test:ok(tnt, 'tarantool loaded')
@@ -15,31 +15,6 @@ test:ok(mq:init() > 0, 'First init queue')
 
 test:ok(box.space.MegaQueue, 'Space created')
 
-test:test('Release to delayed', function(test)
-    
-    test:plan(10)
-
-    local task = mq:put('tube1', { ttl = 1 }, 123)
-    test:ok(task ~= nil, 'task was put')
-
-    local taken = mq:take('tube1', 0.01)
-    test:ok(taken ~= nil, 'task was taken')
-
-    local released = mq:release(taken[1], 2)
-    test:ok(released ~= nil, 'task was acked')
-
-    test:is(released[5], 'delayed', 'task status is delayed')
-    test:ok(released[8].ttl - taken[8].ttl >= 2, 'TTL is prolonged')
-    test:ok(released[8].ttl - taken[8].ttl < 2.1, 'TTL is prolonged to delay')
-
-    test:ok(released[6] - fiber.time() >= 1.9, 'next event')
-    test:ok(released[6] - fiber.time() <= 2.1, 'next event')
-    
-    local status, err = pcall(function() mq:release(taken[1]) end)
-    test:ok(not status, 'Ack removed task raise error')
-
-    test:like(tostring(err), 'was not taken', 'Error message')
-end)
 
 test:test('Release to ready', function(test)
     
@@ -74,7 +49,54 @@ test:test('Release to ready', function(test)
     test:is(take2[1], task_wait[1], 'wait task id')
 end)
 
+test:test('Release to delayed', function(test)
+    
+    test:plan(10)
 
+    local task = mq:put('tube1', { ttl = 1 }, 123)
+    test:ok(task ~= nil, 'task was put')
+
+    local taken = mq:take('tube1', 0.01)
+    test:ok(taken ~= nil, 'task was taken')
+
+    local released = mq:release(taken[1], 2)
+    test:ok(released ~= nil, 'task was acked')
+
+    test:is(released[5], 'delayed', 'task status is delayed')
+    test:ok(released[8].ttl - taken[8].ttl >= 2, 'TTL is prolonged')
+    test:ok(released[8].ttl - taken[8].ttl < 2.1, 'TTL is prolonged to delay')
+
+    test:ok(released[6] - fiber.time() >= 1.9, 'next event')
+    test:ok(released[6] - fiber.time() <= 2.1, 'next event')
+    
+    local status, err = pcall(function() mq:release(taken[1]) end)
+    test:ok(not status, 'Ack removed task raise error')
+
+    test:like(tostring(err), 'was not taken', 'Error message')
+end)
+
+test:test('Release to delayed and take', function(test)
+    
+    test:plan(6)
+
+    local task = mq:put('tube2', { ttl = 1 }, 123)
+    test:ok(task, 'task was put')
+
+    local taken = mq:take('tube2', 0.01)
+    test:ok(taken, 'task was taken')
+
+    local started = fiber.time()
+
+    local released = mq:release(taken[1], .25)
+    test:ok(released, 'task was acked')
+
+    taken = mq:take('tube2', 3)
+    test:ok(taken, 'task was re-taken')
+
+    local time_done = fiber.time() - started;
+    test:ok(time_done >= 0.25, 'delay time >')
+    test:ok(time_done < 0.35, 'delay time <')
+end)
 
 
 -- print(tnt.log())

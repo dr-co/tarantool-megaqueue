@@ -526,15 +526,18 @@ function mq.release(self, tid, delay)
         local event = fiber.time() + delay
        
         local old_status = task[STATUS]
-        task = box.space.MegaQueue:update(task[ID],
-            {
-                { '=', STATUS, 'delayed' },
-                { '=', CLIENT, 0 },
-                { '=', EVENT, event },
-                { '=', OPTIONS, opts }
-            }
-        )
-        self.private.stats:inc(task[TUBE], 'delayed', old_status)
+        box.begin()
+            task = box.space.MegaQueue:update(task[ID],
+                {
+                    { '=', STATUS, 'delayed' },
+                    { '=', CLIENT, 0 },
+                    { '=', EVENT, event },
+                    { '=', OPTIONS, opts }
+                }
+            )
+            self.private.stats:inc(task[TUBE], 'delayed', old_status)
+        box.commit()
+        self:_run_worker()
         return self:_normalize_task(task)
     end
     return self:_normalize_task(self:_task_to_ready(task))
