@@ -143,7 +143,13 @@ function mq._take(self, tube)
     local task = box.space.MegaQueue.index.tube_status_pri_id
                                 :min{ tube, 'ready' }
 
-    if task == nil or task[STATUS] ~= 'ready' then
+    if task == nil then
+        return self:_normalize_task()
+    end
+    if task[STATUS] ~= 'ready' then
+        return self:_normalize_task()
+    end
+    if task[TUBE] ~= tube then
         return self:_normalize_task()
     end
 
