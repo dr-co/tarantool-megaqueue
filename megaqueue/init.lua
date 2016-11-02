@@ -566,7 +566,7 @@ function mq.bury(self, tid, comment)
                 { '=', OPTIONS, opts }
             }
         )
-        self.private.stats:inc(task[TUBE], 'work', old_status)
+        self.private.stats:inc(task[TUBE], task[STATUS], old_status)
     box.commit()
     self:_enqueue_task_by(task)
     return self:_normalize_task(task)
