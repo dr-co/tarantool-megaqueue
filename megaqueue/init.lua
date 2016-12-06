@@ -1,6 +1,10 @@
 local log                   = require 'log'
 local fiber                 = require 'fiber'
 
+
+-- need benchmark!
+-- if You have too many concurent workers (500+) use true
+-- if You have several workers, `false` can be faster (probably)
 local CONSUMERS_IN_SPACE    = true
 
 local MAX_PRI               = 1000
@@ -661,7 +665,7 @@ function mq.kick(self, tube, count)
     return res
 end
 
-function mq.init(self, defaults, opts)
+function mq.init(self, defaults)
 
     self.defaults = self:_extend(self.defaults, defaults)
 
