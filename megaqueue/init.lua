@@ -1,6 +1,8 @@
 local log                   = require 'log'
 local fiber                 = require 'fiber'
 
+local CONSUMERS_IN_SPACE    = true
+
 local MAX_PRI               = 1000
 
 local ID                    = 1
@@ -50,42 +52,75 @@ local mq = {
 }
 
 -- consumers control API
-function mq._consumer_wakeup(self, tube)
-    if self.private.consumer[tube] == nil then
-        return
+if CONSUMERS_IN_SPACE then
+    mq._consumer_wakeup = function(self, tube)
+        local list =
+            box.space.MegaQueueConsumer.index.tube:select(tube, { limit = 1 })
+        if #list == 0 then
+            return
+        end
+        local c = list[1]
+        
+        box.space.MegaQueueConsumer:delete(c[1])
+        fiber.find(c[1]):wakeup()
     end
 
-    for fid, bool in pairs(self.private.consumer[tube]) do
-        if bool then
-            self.private.consumer[tube][fid] = nil
-            fiber.find(fid):wakeup()
-            break
+    mq._consumer_sleep = function(self, tube, timeout)
+        local fid = fiber.id()
+        box.space.MegaQueueConsumer:insert{ fid, tube }
+        fiber.sleep(timeout)
+        box.space.MegaQueueConsumer:delete(fid)
+    end
+    
+    mq._consumer_reinit = function(self)
+        while true do
+            local list = box.space.MegaQueueConsumer:select({}, { limit = 1 })
+            if #list == 0 then
+                return
+            end
+            local c = list[1]
+            box.space.MegaQueueConsumer:delete(c[1])
+            fiber.find(c[1]):wakeup()
         end
     end
-end
+else
+    mq._consumer_wakeup = function(self, tube)
+        if self.private.consumer[tube] == nil then
+            return
+        end
 
-function mq._consumer_sleep(self, tube, timeout)
-    
-    local fid = fiber.id()
-    
-    if self.private.consumer[tube] == nil then
-        self.private.consumer[tube] = {}
+        for fid, bool in pairs(self.private.consumer[tube]) do
+            if bool then
+                self.private.consumer[tube][fid] = nil
+                fiber.find(fid):wakeup()
+                break
+            end
+        end
     end
 
-    self.private.consumer[tube][fid] = true
-    
-    fiber.sleep(timeout)
-    
-    self.private.consumer[tube][fid] = nil
-end
+    mq._consumer_sleep = function(self, tube, timeout)
+        
+        local fid = fiber.id()
+        
+        if self.private.consumer[tube] == nil then
+            self.private.consumer[tube] = {}
+        end
 
-function mq._consumer_reinit(self)
-    local list = self.private.consumer
-    self.private.consumer = {}
-    for _, tube in pairs(list) do
-        for fid, bool in pairs(tube) do
-            if bool then
-                fiber.find(fid):wakeup()
+        self.private.consumer[tube][fid] = true
+        
+        fiber.sleep(timeout)
+        
+        self.private.consumer[tube][fid] = nil
+    end
+
+    mq._consumer_reinit = function(self)
+        local list = self.private.consumer
+        self.private.consumer = {}
+        for _, tube in pairs(list) do
+            for fid, bool in pairs(tube) do
+                if bool then
+                    fiber.find(fid):wakeup()
+                end
             end
         end
     end
@@ -243,8 +278,6 @@ end
 
 function mq._enqueue_task_by(self, task)
 
-    
-
     if not self.private.may_enqueue[ task[STATUS] ] then
         return
     end
@@ -345,10 +378,8 @@ function mq._task_to_ready(self, task, prolong_ttl)
         })
         
         self.private.stats:inc(task[TUBE], status, task[STATUS])
-        
-        self:_consumer_wakeup(task[TUBE])
-        -- TODO: statistics
     box.commit()
+    self:_consumer_wakeup(task[TUBE])
     return updated
 end
 
@@ -630,7 +661,7 @@ function mq.kick(self, tube, count)
     return res
 end
 
-function mq.init(self, defaults)
+function mq.init(self, defaults, opts)
 
     self.defaults = self:_extend(self.defaults, defaults)
 
