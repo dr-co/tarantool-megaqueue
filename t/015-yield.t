@@ -98,25 +98,35 @@ end)
 
 test:test('yieild on persistent', function(test)
     
-    test:plan(1)
+    test:plan(2)
 
     local was_yieild = false
+    fiber.create(function() fiber.yield() was_yieild = true end)
     box.begin()
     box.space.persistent:replace{ 'rollback', 'hello', 'world' }
-    fiber.create(function() was_yieild = true end)
+    test:is(was_yieild, false, 'do not yieild in transaction')
     box.commit()
 
     test:ok(was_yieild, 'box.commit touched yieild')
 end)
 
 test:test('yieild on temp', function(test)
-    test:plan(1)
+    test:plan(4)
     local was_yieild = false
-    fiber.create(function() was_yieild = true end)
-    box.space.tmp:replace{ 'rollback', 'hello', 'world' }
+    fiber.create(function() finish.yieild() was_yieild = true end)
 
-    -- tarantool bug: tempspace should not yieild
-    test:ok(was_yieild, 'box.commit touched yieild')
+    box.space.tmp:insert{ 'rollback1', 'hello', 'world' }
+    test:is(was_yieild, false, 'tempspace:insert does not touch yieild')
+    
+    box.space.tmp:replace{ 'rollback', 'hello', 'world' }
+    test:is(was_yieild, false, 'tempspace:replace does not touch yieild')
+    
+    box.space.tmp:update( 'rollback', {{ '=', 2, 'ehlo' }} )
+    test:is(was_yieild, false, 'tempspace:update does not touch yieild')
+    
+    box.space.tmp:delete{ 'rollback1' }
+    test:is(was_yieild, false, 'tempspace:delete does not touch yieild')
+
 end)
 
 
