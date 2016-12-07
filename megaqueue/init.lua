@@ -549,6 +549,30 @@ function mq.ack(self, tid)
     return self:_normalize_task(self:_task_delete(task))
 end
 
+function mq.prolong_ttr(self, tid, timeout)
+    
+    tid = self:_tid_by_task_or_tid(tid, 'usage: mq:prolong_ttr(task_id)')
+    local task = self:_get_taken(tid)
+
+    local opts = task[OPTIONS]
+    
+    if timeout == nil then
+        timeout = opts.ttr
+    else
+        timeout = tonumber(timeout)
+    end
+
+    opts.ttl = opts.ttl + timeout
+
+    task = box.space.MegaQueue:update(task[ID],
+                {
+                    { '=', OPTIONS, opts },
+                    { '=', EVENT, task[EVENT] + timeout },
+                }
+            )
+    return self:_normalize_task(task)
+end
+
 function mq.release(self, tid, delay)
     tid = self:_tid_by_task_or_tid(tid, 'usage: mq:release(task_id)')
     if delay ~= nil then

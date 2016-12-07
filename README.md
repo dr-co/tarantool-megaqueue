@@ -128,6 +128,11 @@ error.
 
 On success, delete the task from the queue.
 
+#### queue:prolong_ttr(id[, delay])
+
+Prolong `ttr` time for taken task. If `delay` is not defined
+`ttr` will be prolonged by `task.ttr`.
+
 #### queue:release(id[, delay])
 
 Return a task back to the queue: the task is not executed.

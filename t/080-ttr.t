@@ -3,7 +3,7 @@
 local yaml = require 'yaml'
 local test = require('tap').test()
 local fiber = require 'fiber'
-test:plan(6)
+test:plan(8)
 
 local tnt = require('t.tnt')
 test:ok(tnt, 'tarantool loaded')
@@ -53,6 +53,52 @@ test:test("take ready task", function(test)
 end)
 
 
+test:test('prolong ttr tests', function(test)
+    test:plan(45)
+
+    test:ok(mq:put('tube_ttl', { ttr = .25 }, 123), 'put task with short ttl')
+
+    local task = mq:take('tube_ttl', .1)
+    test:ok(task, 'task was taken')
+    test:is(task[5], 'work', 'task status')
+
+    local started = fiber.time()
+    for i = 1, 10 do
+        fiber.sleep(0.1)
+        local ptask = mq:prolong_ttr(task[1])
+        test:ok(ptask, 'prolong done ' .. i)
+        test:is(ptask[6], task[6] + 0.25, 'real ttr value')
+        test:is(ptask[8].ttl, task[8].ttl + 0.25, 'ttl value')
+        test:is(ptask[8].ttr, task[8].ttr, 'ttr is not changed')
+        task = ptask
+    end
+    test:ok(fiber.time() - started > task[8].ttr * 2, 'timeout exceeded')
+
+    test:ok(mq:take('tube_ttl', .5) == nil, 'task is taken yet')
+end)
+
+test:test('ttr after prolong', function(test)
+    test:plan(10)
+
+    test:ok(mq:put('tube_ttl', { ttr = .25 }, 123), 'put task with short ttl')
+
+    local task = mq:take('tube_ttl', .1)
+    test:ok(task, 'task was taken')
+    test:is(task[5], 'work', 'task status')
+
+    local started = fiber.time()
+    
+    local ptask = mq:prolong_ttr(task[1], .2)
+    test:ok(ptask, 'prolong done')
+    test:is(ptask[6], task[6] + 0.2, 'real ttr value')
+    test:is(ptask[8].ttl, task[8].ttl + 0.2, 'ttl value')
+    test:is(ptask[8].ttr, task[8].ttr, 'ttr is not changed')
+
+    test:ok(mq:take('tube_ttl', .2) == nil, 'task is taken')
+    test:ok(mq:take('tube_ttl', .2) == nil, 'task is taken yet')
+    test:ok(mq:take('tube_ttl', .25), 'task was released')
+
+end)
 
 -- test:diag(tnt.log())
 ----------------------------------------------------
