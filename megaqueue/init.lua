@@ -730,7 +730,11 @@ end
 
 function mq.stats(self, tube)
     if tube == nil then
-        return box.space.MegaQueueStats:select(nil, { iterator = 'ALL' })
+        local list = box.space.MegaQueueStats:select(nil, { iterator = 'ALL' })
+        if #list == 0 then
+            return
+        end
+        return list
     end
     return box.space.MegaQueueStats:get(tube)
 end
