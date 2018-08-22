@@ -312,7 +312,14 @@ function mq._enqueue_task_by(self, task)
         )
 
     if wait_task == nil then
-        return
+        wait_task = self:_task_by_tube_domain(
+            task[TUBE],
+            task[DOMAIN],
+            { 'inspect' }
+        )
+        if wait_task == nil then
+            return
+        end
     end
 
     box.begin()
@@ -352,7 +359,9 @@ function mq._task_to_ready(self, task, prolong_ttl)
 
     if task[DOMAIN] ~= '' then
         local ck_statuses
-        if task[STATUS] == 'work' then
+        if task[OPTIONS].inspect == 1 then
+            ck_statuses = { 'ready', 'work' }
+        elseif task[STATUS] == 'work' then
             ck_statuses = { 'ready' }
         else
             ck_statuses = { 'ready', 'work' }
@@ -366,6 +375,9 @@ function mq._task_to_ready(self, task, prolong_ttl)
             )
         if exists ~= nil then
             status = 'wait'
+            if task[OPTIONS].inspect == 1 then
+                status = 'inspect'
+            end
         end
     end
 
@@ -486,7 +498,6 @@ function mq.put(self, tube, opts, data)
     end
     tube = tostring(tube)
 
-
     local status = 'ready'
     if opts.delay > 0 then
         opts.ttl = opts.ttl + opts.delay
@@ -498,10 +509,15 @@ function mq.put(self, tube, opts, data)
 
         if exists ~= nil then
             -- the task is inspector for domain
-            if opts.inspect == true or opts.inspect == 1 then
-                status = 'inspector'
+            if opts.inspect == 1 then
+                status = 'inspect'
             else
                 status = 'wait'
+            end
+        elseif opts.inspect == 1 then
+            exists = self:_task_by_tube_domain(tube, opts.domain, { 'inspect' })
+            if exists ~= nil then
+                status = 'inspect'
             end
         end
     end
@@ -525,7 +541,9 @@ function mq.put(self, tube, opts, data)
     local pri = MAX_PRI - opts.pri
     local domain = opts.domain
     opts.domain = nil
-    opts.inspect = nil
+    if opts.inspect ~= 1 then
+        opts.inspect = nil
+    end
 
     if data == nil then
         data = msgpack.NULL
@@ -547,10 +565,7 @@ function mq.put(self, tube, opts, data)
     box.begin()
         task = box.space.MegaQueue:insert(task)
         self:_next_serial('MegaQueue')
-
-
         self.private.stats:inc(task[TUBE], task[STATUS])
-
         self:_consumer_wakeup(tube)
     box.commit()
 
