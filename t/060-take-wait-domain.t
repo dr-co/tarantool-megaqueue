@@ -3,6 +3,7 @@
 local yaml = require 'yaml'
 local test = require('tap').test()
 local fiber = require 'fiber'
+local msgpack = require 'msgpack'
 test:plan(6)
 
 local tnt = require('t.tnt')
@@ -67,8 +68,6 @@ test:test('domain ttl', function(test)
 
     test:ok(taken ~= nil, 'task2 was taken')
     test:is(taken[1], ltask[1], 'task2 id')
-
-    
 end)
 
 

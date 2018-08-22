@@ -44,12 +44,12 @@ test:ok(task, 'task was put')
 local task2 = mq:put('tube', nil, 345)
 test:ok(task2, 'task was put')
 
-local taken = nbox:call('mq:take', 'tube', 0.5)
+local taken = nbox:call('mq:take', { 'tube', 0.5 })
 test:ok(taken, 'task was taken through net.box')
 test:isnt(taken[7], box.session.id(), 'its own session.id')
 
 
-local taken2 = nbox2:call('mq:take', 'tube', 0.5)
+local taken2 = nbox2:call('mq:take', { 'tube', 0.5 })
 test:ok(taken2, 'task was taken through net.box')
 test:isnt(taken2[7], taken[7], 'session id')
 test:isnt(taken2[7], box.session.id(), 'its own session.id')

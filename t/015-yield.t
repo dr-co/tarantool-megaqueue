@@ -45,7 +45,7 @@ end)
 
 test:test('rollback by yieild test', function(test)
     
-    test:plan(3)
+    test:plan(5)
 
     box.begin()
 
@@ -55,8 +55,10 @@ test:test('rollback by yieild test', function(test)
     test:ok(t ~= nil, 'selected in transaction')
 
     fiber.sleep(0.01)
-    box.commit()
+    local s, m = pcall(function() box.commit() end)
 
+    test:ok(s == false, 'exception by box.commit')
+    test:like(m, 'Transaction has been aborted', 'exception message')
     t = box.space.persistent:get{ 'rollback' }
     test:ok(t == nil, 'Did not written to disk')
 end)
@@ -80,7 +82,7 @@ end)
 
 test:test('rollback by yieild test [temporary space]', function(test)
     
-    test:plan(3)
+    test:plan(5)
 
     box.begin()
 
@@ -90,7 +92,9 @@ test:test('rollback by yieild test [temporary space]', function(test)
     test:ok(t ~= nil, 'selected in transaction')
 
     fiber.sleep(0.01)
-    box.commit()
+    local s, m = pcall(function() box.commit() end )
+    test:ok(s == false, 'exception')
+    test:like(m, 'Transaction has been aborted', 'exception message')
 
     t = box.space.tmp:get{ 'rollback' }
     test:ok(t == nil, 'Did not written to disk')
@@ -107,6 +111,7 @@ test:test('yieild on persistent', function(test)
     test:is(was_yieild, false, 'do not yieild in transaction')
     box.commit()
 
+    fiber.sleep(0)
     test:ok(was_yieild, 'box.commit touched yieild')
 end)
 
@@ -126,7 +131,6 @@ test:test('yieild on temp', function(test)
     
     box.space.tmp:delete{ 'rollback1' }
     test:is(was_yieild, false, 'tempspace:delete does not touch yieild')
-
 end)
 
 
