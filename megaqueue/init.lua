@@ -224,16 +224,31 @@ function mq._normalize_task(self, task)
 end
 
 function mq._task_by_tube_domain(self, tube, domain, statuses)
-    local list
 
+    local res
     for _, status in pairs(statuses) do
-        list = box.space.MegaQueue.index.tube_domain_status
-                    :select({ tube, domain, status },
-                                { iterator = 'EQ', limit = 1 })
-        if #list > 0 then
-            return list[1]
+        local t = box.space.MegaQueue.index.tube_domain_status
+                    :min { tube, domain, status }
+
+        if t ~= nil then
+            if t[TUBE] ~= tube or t[DOMAIN] ~= domain or t[STATUS] ~= status then
+                t = nil
+            end
+        end
+
+        if t ~= nil then
+            if res == nil then
+                res = t
+            else
+                if t[PRI] < res[PRI] then
+                    res = t
+                elseif t[PRI] == res[PRI] and t[ID] < res[ID] then
+                    res = t
+                end
+            end
         end
     end
+    return res
 end
 
 function mq._run_worker(self)

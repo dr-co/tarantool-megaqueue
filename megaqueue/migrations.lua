@@ -221,6 +221,30 @@ migrations.list = {
             )
         end
     },
+    
+    {
+        description = 'MegaQueue: create domain index with pri/order',
+        up  = function()
+            box.space.MegaQueue:create_index(
+                'tube_domain_status2',
+                {
+                    unique  = false,
+                    type    = 'tree',
+                    parts   = {
+                        2, 'str',       -- tube
+                        4, 'str',       -- domain
+                        5, 'str',       -- status
+                        3, 'unsigned',  -- pri
+                        1, 'unsigned'   -- id
+                    }
+                }
+            )
+
+            box.space.MegaQueue.index.tube_domain_status:drop()
+            box.space.MegaQueue.index.tube_domain_status2
+                :rename('tube_domain_status')
+        end
+    },
 }
 
 
