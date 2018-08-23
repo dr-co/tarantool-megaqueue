@@ -646,7 +646,7 @@ function mq.release(self, tid, delay)
             )
             self.private.stats:inc(task[TUBE], 'delayed', old_status)
         box.commit()
-        self:_run_worker()
+        self:_process_tube(task[TUBE])
         return self:_normalize_task(task)
     end
     return self:_normalize_task(self:_task_to_ready(task))
