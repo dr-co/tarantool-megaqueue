@@ -52,7 +52,6 @@ test:test("put ready task with domain", function(test)
 --    test:diag(yaml.encode(task))
 end)
 
-
 test:test("put second task with the same domain", function(test)
     test:plan(9)
 
@@ -68,6 +67,7 @@ test:test("put second task with the same domain", function(test)
     test:ok(task[8].created <= fiber.time(), 'task created')
     test:is(task[9], 345, 'task data')
 end)
+
 
 test:test("put ready task", function(test)
 

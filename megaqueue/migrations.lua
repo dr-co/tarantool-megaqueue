@@ -245,6 +245,24 @@ migrations.list = {
                 :rename('tube_domain_status')
         end
     },
+    {
+        description = 'MegaQueue: create global domain index',
+        up  = function()
+            box.space.MegaQueue:create_index(
+                'domain_status',
+                {
+                    unique  = false,
+                    type    = 'tree',
+                    parts   = {
+                        4, 'str',       -- domain
+                        5, 'str',       -- status
+                        3, 'unsigned',  -- pri
+                        1, 'unsigned'   -- id
+                    }
+                }
+            )
+        end
+    },
 }
 
 

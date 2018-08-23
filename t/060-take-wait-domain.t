@@ -49,14 +49,13 @@ end)
 
 
 
-
 ----------------------------------------------------
 test:test('domain ttl', function(test)
     test:plan(5)
-    local task = mq:put('tube2', { ttl = 0.1, domain = 'abc' })
+    local task = mq:put('tube2', { ttl = 0.1, domain = 'abc1' })
     test:is(task[5], 'ready', 'task1 was put (ttl = 0.1)')
 
-    local ltask = mq:put('tube2', { domain = 'abc' })
+    local ltask = mq:put('tube2', { domain = 'abc1' })
     test:is(ltask[5], 'wait', 'task2 was put and wait')
 
     fiber.sleep(0.3)

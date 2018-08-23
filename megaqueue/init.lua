@@ -223,15 +223,14 @@ function mq._normalize_task(self, task)
     return task
 end
 
-function mq._task_by_tube_domain(self, tube, domain, statuses)
+function mq._task_by_domain(self, domain, statuses)
 
     local res
     for _, status in pairs(statuses) do
-        local t = box.space.MegaQueue.index.tube_domain_status
-                    :min { tube, domain, status }
+        local t = box.space.MegaQueue.index.domain_status:min { domain, status }
 
         if t ~= nil then
-            if t[TUBE] ~= tube or t[DOMAIN] ~= domain or t[STATUS] ~= status then
+            if t[DOMAIN] ~= domain or t[STATUS] ~= status then
                 t = nil
             end
         end
@@ -255,6 +254,8 @@ function mq._run_worker(self)
     local rw = self._run_fiber
 
     fiber.create(function()
+        fiber.name('ttl-ttr')
+        log.info('MegaQueue: TTL/TTR fiber started')
         local now
         while rw[1] do
             now = fiber.time()
@@ -294,6 +295,7 @@ function mq._run_worker(self)
                 end
             end
         end
+        log.info('MegaQueue: TTL/TTR fiber finished')
     end)
 end
 
@@ -309,8 +311,7 @@ function mq._enqueue_task_by(self, task)
 
     -- check if error (impossible, but...)
     local exists =
-        self:_task_by_tube_domain(
-            task[TUBE],
+        self:_task_by_domain(
             task[DOMAIN],
             { 'ready', 'work' }
         )
@@ -320,15 +321,13 @@ function mq._enqueue_task_by(self, task)
     end
 
     local wait_task =
-        self:_task_by_tube_domain(
-            task[TUBE],
+        self:_task_by_domain(
             task[DOMAIN],
             { 'wait' }
         )
 
     if wait_task == nil then
-        wait_task = self:_task_by_tube_domain(
-            task[TUBE],
+        wait_task = self:_task_by_domain(
             task[DOMAIN],
             { 'inspect' }
         )
@@ -383,8 +382,7 @@ function mq._task_to_ready(self, task, prolong_ttl)
         end
 
         local exists =
-            self:_task_by_tube_domain(
-                task[TUBE],
+            self:_task_by_domain(
                 task[DOMAIN],
                 ck_statuses
             )
@@ -519,8 +517,7 @@ function mq.put(self, tube, opts, data)
         status = 'delayed'
     elseif opts.domain ~= '' then
         -- checks domain
-        local exists =
-            self:_task_by_tube_domain(tube, opts.domain, { 'ready', 'work' })
+        local exists = self:_task_by_domain(opts.domain, { 'ready', 'work' })
 
         if exists ~= nil then
             -- the task is inspector for domain
@@ -530,7 +527,7 @@ function mq.put(self, tube, opts, data)
                 status = 'wait'
             end
         elseif opts.inspect == 1 then
-            exists = self:_task_by_tube_domain(tube, opts.domain, { 'inspect' })
+            exists = self:_task_by_domain(opts.domain, { 'inspect' })
             if exists ~= nil then
                 status = 'inspect'
             end
