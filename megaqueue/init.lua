@@ -346,7 +346,7 @@ function mq._enqueue_task_by(self, task)
                         wait_task[OPTIONS].ttl + wait_task[OPTIONS].created }
             }
         )
-        self.private.stats:inc(task[TUBE], 'ready', old_status)
+        self.private.stats:inc(wait_task[TUBE], 'ready', old_status)
     box.commit()
     self:_consumer_wakeup(wait_task[TUBE])
 end
