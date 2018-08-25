@@ -3,7 +3,7 @@
 local yaml = require 'yaml'
 local test = require('tap').test()
 local fiber = require 'fiber'
-test:plan(9)
+test:plan(11)
 
 local tnt = require('t.tnt')
 test:ok(tnt, 'tarantool loaded')
@@ -58,6 +58,9 @@ end)
 test:is_deeply({ mq:stats()[1]:unpack() }, { 'tube1', { ready = 0, work = 1 } }, 'stats')
 test:isnil(mq:stats('unknown tube'), 'stats by unknown tube')
 
+test:ok(mq.private.stats:rebuild(), 'rebuild')
+test:is_deeply(
+    { mq:stats()[1]:unpack() }, { 'tube1', { ready = 0, work = 1 } }, 'stats')
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)
