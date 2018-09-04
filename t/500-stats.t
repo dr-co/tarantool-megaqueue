@@ -3,7 +3,7 @@
 local yaml = require 'yaml'
 local test = require('tap').test()
 local fiber = require 'fiber'
-test:plan(11)
+test:plan(13)
 
 local tnt = require('t.tnt')
 test:ok(tnt, 'tarantool loaded')
@@ -55,12 +55,19 @@ test:test("take timeout", function(test)
     test:ok(task == nil, 'timeout reached')
 end)
 
-test:is_deeply({ mq:stats()[1]:unpack() }, { 'tube1', { ready = 0, work = 1 } }, 'stats')
+local s = { mq:stats()[1]:unpack() }
+test:ok(s[2].time, 'time is set')
+s[2].time = nil
+test:is_deeply(s, { 'tube1', { ready = 0, work = 1 } }, 'stats')
 test:isnil(mq:stats('unknown tube'), 'stats by unknown tube')
 
 test:ok(mq.private.stats:rebuild(), 'rebuild')
-test:is_deeply(
-    { mq:stats()[1]:unpack() }, { 'tube1', { ready = 0, work = 1 } }, 'stats')
+
+s = { mq:stats()[1]:unpack() }
+test:ok(s[2].time, 'time is set')
+s[2].time = nil
+
+test:is_deeply(s, { 'tube1', { ready = 0, work = 1 } }, 'stats')
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)

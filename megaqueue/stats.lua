@@ -1,9 +1,56 @@
-local private = {}
+local fiber = require 'fiber'
+local log = require 'log'
 
 local stats = {}
+local private = {}
+local STAT_TIMEOUT      = 6 * 3600
 
 local function as_map(table)
     return setmetatable(table, { __serialize = 'map' })
+end
+
+
+function stats.init(self)
+    if self._cleanup ~= nil then
+        self._cleanup[1] = false
+    end
+    self._cleanup = { true, fiber.time() }
+    
+    fiber.create(function()
+        fiber.name('stat-clean')
+        local c = self._cleanup
+        log.info('MegaQueue: stat cleanup fiber started')
+        while c[1] do
+            local rm = {}
+            for _, t in box.space.MegaQueueStats.index.tube:pairs() do
+
+                local time = t[2].time
+                if time == nil then
+                    time = c[2]
+                end
+
+                if fiber.time() - time > STAT_TIMEOUT then
+                    local tube = t[1]
+
+                    local e = box.space.MegaQueue.index.tube_status_pri_id
+                            :select(tube, { limit = 1 })
+                    if #e == 0 or e[1][2] ~= tube then
+                        table.insert(rm, tube)
+                    end
+                end
+            end
+            if #rm > 0 then
+                log.info('MegaQueue: drop %d old stats records', #rm)
+                box.begin()
+                for _, tube in pairs(rm) do
+                    box.space.MegaQueueStats:delete(tube)
+                end
+                box.commit()
+            end
+            fiber.sleep(60)
+        end
+        log.info('MegaQueue: stat cleanup fiber finished')
+    end)
 end
 
 function stats.rebuild(self)
@@ -35,9 +82,11 @@ function stats.rebuild(self)
         end
     end
 
+
     local count = 0
     box.begin()
     for tube, s in pairs(stat) do
+        s.time = fiber.time()
         box.space.MegaQueueStats:replace { tube, s }
         count = count + 1
     end
@@ -81,7 +130,10 @@ function stats.inc(self, tube, key, dec_key)
 end
 
 
+
+
 function private._store(self, tube, cnt)
+    cnt.time = fiber.time()
     box.space.MegaQueueStats:replace({ tube, cnt })
 end
 

@@ -766,6 +766,7 @@ function mq.init(self, defaults)
 
     self:_consumer_reinit()
     self:_run_worker()
+    self.private.stats:init()
 
 
     return upgrades
