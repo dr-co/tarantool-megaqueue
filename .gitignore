@@ -1,2 +1,3 @@
 megaqueue-*.rockspec.prepare
 *.src.rock
+docker/Dockerfile

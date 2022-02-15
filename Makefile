@@ -8,6 +8,11 @@ VERSION	= $(shell grep VERSION megaqueue/init.lua	\
 
 SPEC_NAME 	= megaqueue-$(VERSION).rockspec
 
+DOCKER_VERSIONS	= \
+	2.8.3 		\
+	2.8
+DOCKER_LATEST = 2.8.3
+
 all:
 	@echo usage: 'make test'
 
@@ -31,7 +36,30 @@ $(SPEC_NAME): $(megaqueue/init.lua) megaqueue.spec.tpl
 upload: update-spec
 	rm -f megaqueue-*.src.rock
 	luarocks upload $(SPEC_NAME)	
-	
+
+
+dockers:
+	@set -e; \
+	cd docker; \
+	for version in $(DOCKER_VERSIONS); do \
+		TAGS="-t unera/tarantool-megaqueue:$$version"; \
+		test $$version = $(DOCKER_LATEST) && TAGS="-t unera/tarantool-megaqueue:latest $$TAGS"; \
+		echo "\\nDockers creating: $$TAGS..."; \
+		sed -E "s/@@VERSION@@/$$version/g" Dockerfile.in > Dockerfile \
+			| docker build . \
+				$$TAGS 2>&1 |sed -u -E 's/^/\t/' \
+		; \
+	done
+
+docker-upload: dockers
+	@set -e; \
+	cd docker; \
+	for version in $(DOCKER_VERSIONS); do \
+		TAGS="unera/tarantool-megaqueue:$$version"; \
+i		test $$version = $(DOCKER_LATEST) && TAGS="unera/tarantool-megaqueue:latest $$TAGS"; \
+		docker push $$TAGS; \
+	done
+
 
 .PHONY: \
 	all \
