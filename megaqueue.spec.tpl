@@ -16,13 +16,9 @@ build = {
     type = 'builtin',
 
     modules = {
-        ['megaqueue'] = {
-            sources = {
-                'megaqueue/init.lua',
-                'megaqueue/migrations.lua',
-                'megaqueue/stats.lua',
-            }
-        },
+        ['megaqueue'] 			= 'megaqueue/init.lua',
+	['megaqueue.migrations'] 	= 'megaqueue/migrations.lua',
+	['megaqueue.stats']		= 'megaqueue/stats.lua',
     }
 }
 

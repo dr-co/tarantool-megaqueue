@@ -29,7 +29,7 @@ local C_FID                 = 4
 local TIMEOUT_INFINITY      = 86400 * 365 * 100
 
 local mq = {
-    VERSION             = '1.0.1',
+    VERSION             = '1.0-3',
 
     defaults    = {
         ttl             = 86400,

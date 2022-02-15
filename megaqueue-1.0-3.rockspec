@@ -1,5 +1,5 @@
 package = 'megaqueue'
-version = '1.0.1'
+version = '1.0-3'
 source  = {
     url    = 'git+https://github.com/dr-co/tarantool-megaqueue',
     branch = 'master',
@@ -16,13 +16,9 @@ build = {
     type = 'builtin',
 
     modules = {
-        ['megaqueue'] = {
-            sources = {
-                'megaqueue/init.lua',
-                'megaqueue/migrations.lua',
-                'megaqueue/stats.lua',
-            }
-        },
+        ['megaqueue'] 			= 'megaqueue/init.lua',
+	['megaqueue.migrations'] 	= 'megaqueue/migrations.lua',
+	['megaqueue.stats']		= 'megaqueue/stats.lua',
     }
 }
 

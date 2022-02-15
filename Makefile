@@ -25,7 +25,13 @@ $(SPEC_NAME): $(megaqueue/init.lua) megaqueue.spec.tpl
 	cp -v megaqueue.spec.tpl $@.prepare
 	sed -Ei 's/@@VERSION@@/$(VERSION)/g' $@.prepare
 	mv -v $@.prepare $@
+	git add $@
 
+
+upload: update-spec
+	rm -f megaqueue-*.src.rock
+	luarocks upload $(SPEC_NAME)	
+	
 
 .PHONY: \
 	all \
