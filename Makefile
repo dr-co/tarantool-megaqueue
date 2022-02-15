@@ -13,6 +13,8 @@ DOCKER_VERSIONS	= \
 	2.8
 DOCKER_LATEST = 2.8.3
 
+GITVERSION	= $(shell git describe)
+
 all:
 	@echo usage: 'make test'
 
@@ -42,7 +44,7 @@ dockers:
 	@set -e; \
 	cd docker; \
 	for version in $(DOCKER_VERSIONS); do \
-		TAGS="-t unera/tarantool-megaqueue:$$version"; \
+		TAGS="-t unera/tarantool-megaqueue:$$version-$(GITVERSION)"; \
 		test $$version = $(DOCKER_LATEST) && TAGS="-t unera/tarantool-megaqueue:latest $$TAGS"; \
 		echo "\\nDockers creating: $$TAGS..."; \
 		sed -E "s/@@VERSION@@/$$version/g" Dockerfile.in > Dockerfile \
@@ -51,13 +53,17 @@ dockers:
 		; \
 	done
 
-docker-upload: dockers
+docker-upload: # dockers
 	@set -e; \
 	cd docker; \
 	for version in $(DOCKER_VERSIONS); do \
-		TAGS="unera/tarantool-megaqueue:$$version"; \
-i		test $$version = $(DOCKER_LATEST) && TAGS="unera/tarantool-megaqueue:latest $$TAGS"; \
-		docker push $$TAGS; \
+		TAGS="unera/tarantool-megaqueue:$$version-$(GITVERSION)"; \
+		test $$version = $(DOCKER_LATEST) && TAGS="$$TAGS unera/tarantool-megaqueue:latest"; \
+		echo "\\n/ $$version / Uploading: $$TAGS..."; \
+		for tag in $$TAGS; do \
+			echo + docker push $$tag; \
+			docker push $$tag; \
+		done; \
 	done
 
 
