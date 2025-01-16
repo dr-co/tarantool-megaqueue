@@ -8,10 +8,10 @@ VERSION	= $(shell grep VERSION megaqueue/init.lua	\
 
 SPEC_NAME 	= megaqueue-$(VERSION).rockspec
 
-DOCKER_VERSIONS	= \
+DOCKER_VERSIONS	?= \
 	2.8.3 		\
 	2.8
-DOCKER_LATEST = 2.8.3
+DOCKER_LATEST ?= 2.8.3
 
 GITVERSION	= $(shell git describe)
 
@@ -42,13 +42,12 @@ upload: update-spec
 
 dockers:
 	@set -e; \
-	cd docker; \
 	for version in $(DOCKER_VERSIONS); do \
 		TAGS="-t unera/tarantool-megaqueue:$$version-$(GITVERSION)"; \
 		test $$version = $(DOCKER_LATEST) && TAGS="-t unera/tarantool-megaqueue:latest $$TAGS"; \
 		echo "\\nDockers creating: $$TAGS..."; \
-		sed -E "s/@@VERSION@@/$$version/g" Dockerfile.in > Dockerfile \
-			| docker build . \
+		sed -E "s/@@VERSION@@/$$version/g" docker/Dockerfile.in \
+			| docker build -f- . \
 				$$TAGS 2>&1 |sed -u -E 's/^/\t/' \
 		; \
 	done

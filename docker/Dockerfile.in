@@ -1,6 +1,5 @@
 FROM tarantool/tarantool:@@VERSION@@
 WORKDIR /opt/megaqueue
-COPY start-mq.lua /opt/megaqueue
-RUN luarocks --to /opt/.rocks --local install megaqueue
-RUN ln -s /opt/.rocks/share/lua/5.1/ /opt/.rocks/share/tarantool
+COPY docker/start-mq.lua /opt/megaqueue
+COPY megaqueue /opt/megaqueue
 CMD [ "tarantool", "/opt/megaqueue/start-mq.lua" ]
