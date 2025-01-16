@@ -1,5 +1,6 @@
 FROM tarantool/tarantool:@@VERSION@@
 WORKDIR /opt/megaqueue
 COPY docker/start-mq.lua /opt/megaqueue
-COPY megaqueue /opt/megaqueue
+COPY megaqueue /opt/megaqueue/megaqueue
+ENV LUA_PATH=/opt/megaqueue/?.lua:/opt/megaqueue/?/init.lua
 CMD [ "tarantool", "/opt/megaqueue/start-mq.lua" ]
